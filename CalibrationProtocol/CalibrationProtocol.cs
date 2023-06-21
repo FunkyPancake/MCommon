@@ -1,7 +1,7 @@
-﻿using Calibration.Io.TransportProtocol;
+﻿using CalTp.TransportProtocols;
 using Serilog;
 
-namespace Calibration.Io;
+namespace CalTp;
 
 public enum CmdStatus {
     Ok,
@@ -123,19 +123,4 @@ public class CalibrationProtocol {
     private byte[] GetSizeBytes(ushort value) {
         return BitConverter.GetBytes(value);
     }
-}
-
-internal enum Command {
-    Connect = 0xff,
-    Disconnect = 0xfe,
-    Reset,
-    GetControlBlock,
-    ReadMemory=0xf5,
-    WriteMemory=0xf0,
-    Program,
-    ConfigureCyclicRead,
-    StartCyclicRead,
-    StopCyclicRead,
-    ClearCyclicRead,
-    JumpToFbl
 }
