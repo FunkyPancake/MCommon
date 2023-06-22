@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<testsuites time="0.034" tests="2" failures="1">
+  <testsuite id="0" name="IntelHexTests.dll" tests="2" failures="1" time="0.034">
+    <testcase classname="IntelHexTests.UnitTest1" name="IntelHexTests.UnitTest1.Test1(input: &quot;:00000201FF&quot;, byteCount: 0, address: 0, recordType: 1, data: [], checksum: 255)" time="0.0209799">
+      <error message="Assert.Equal() Failure&#xD;&#xA;Expected: 0&#xD;&#xA;Actual:   2">   at IntelHexTests.UnitTest1.Test1(String input, Byte byteCount, UInt32 address, Byte recordType, Byte[] data, Byte checksum) in C:\projects\Volvo\lcfgeditor\IntelHexTests\HexEntryTests.cs:line 20</error>
+    </testcase>
+    <testcase classname="IntelHexTests.UnitTest1" name="IntelHexTests.UnitTest1.Test1(input: &quot;:020000020000&quot;, byteCount: 2, address: 0, recordType: 2, data: [0], checksum: 0)" time="0.0133116" />
+  </testsuite>
+</testsuites>
