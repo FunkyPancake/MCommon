@@ -1,4 +1,6 @@
+using CalTp.TransportProtocol;
 using Serilog;
+using Version = CommonTypes.Version;
 
 namespace CalTp.Bootloader.BootloaderLogic;
 
@@ -52,12 +54,12 @@ internal class Commands {
         return false;
     }
 
-    public bool Ping(out SoftwareVersion pingData) {
-        pingData = null!;
+    public bool Ping(out Version pingData) {
+        pingData = new Version();
         _tp.Send(PacketWrapper.BuildFramingPacket(PacketType.Ping));
         var status = PacketWrapper.ParsePingResponse(_tp.GetBytes(10, PingTimeoutMs), out var response);
         if (status) {
-            pingData = new SoftwareVersion(Major: response[2], Minor: response[1], Bugfix: response[0]);
+            pingData = new Version(response[2], response[1], response[0]);
         }
 
         return status;

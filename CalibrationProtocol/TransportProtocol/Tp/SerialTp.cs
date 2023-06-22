@@ -2,7 +2,7 @@ using System.IO.Ports;
 using System.Text;
 using Serilog;
 
-namespace Calibration.Io.TransportProtocol;
+namespace CalTp.TransportProtocol.Tp;
 
 public class SerialTp : ITransportProtocol, IDisposable {
     private readonly ILogger _logger;
@@ -58,7 +58,7 @@ public class SerialTp : ITransportProtocol, IDisposable {
         _serialPort.Close();
     }
 
-    public async Task<(TpStatus Status, byte[] Data)> Query(byte[] command, int responseLength) {
+    public async Task<(TpStatus Status, byte[] Data)> QueryAsync(byte[] command, int responseLength) {
         if (!_serialPort.IsOpen) {
             _logger.Error("Interface not connected.");
             return (TpStatus.NotConnected, Array.Empty<byte>());
@@ -102,6 +102,13 @@ public class SerialTp : ITransportProtocol, IDisposable {
     }
 
     public event EventHandler? OnNewAsyncMessage;
+    public void Send(byte[] cmd) {
+        throw new NotImplementedException();
+    }
+
+    public byte[] GetBytes(int i, int timeout) {
+        throw new NotImplementedException();
+    }
 
     private async Task<int> ReadBytesAsync(byte[] buffer, int bytesToRead) {
         var bytesRead = 0;

@@ -7,6 +7,8 @@ namespace Calibration.CalFile;
 
 public class CalFileManager {
     private readonly ILogger _logger;
+    private XElement _calTree
+        ;
     public const string ConfigFileExtension = ".xml";
 
     public CalFileManager(ILogger logger) {
@@ -92,7 +94,8 @@ public class CalFileManager {
                 _ => throw new ArgumentOutOfRangeException()
             };
 
-            cal.Add(id, item);
+            object cal = null;
+            // cal.Add(id, item);
         }
     }
 
@@ -102,20 +105,21 @@ public class CalFileManager {
     }
 
     public ICalItem GetCalById(Guid id) {
-        return _cal[id];
+        // return _cal[id];
+        return new Axis();
     }
 
     private void ParseVariable(XElement element) {
         var id = Guid.Parse(element.Attribute("id")!.Value);
         var tmp = element.Element("UnitGroup")!.Attribute("id")!.Value;
         var unitGroupId = Guid.Parse(tmp);
-        _variables.Add(id, new Variable(id, _unitGroups[unitGroupId]));
+        // _variables.Add(id, new Variable(id, _unitGroups[unitGroupId]));
     }
 
     private void ParseUnitGroup(XElement element) {
         var id = Guid.Parse(element!.Attribute("id")!.Value);
 
-        _unitGroups.Add(id, new UnitGroup(id, "texst sample"));
+        //_unitGroups.Add(id, new UnitGroup(id, "texst sample"));
     }
 
     public async void Save(Config config) {
@@ -137,4 +141,7 @@ public class CalFileManager {
         public CalInternal() : base() {
         }
     }
+}
+
+public class Config {
 }

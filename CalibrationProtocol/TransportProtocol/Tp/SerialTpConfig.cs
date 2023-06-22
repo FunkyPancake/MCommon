@@ -1,4 +1,4 @@
-namespace Calibration.Io.TransportProtocol;
+namespace CalTp.TransportProtocol.Tp;
 
 public record SerialTpConfig {
     public string ComPort { get; init; }

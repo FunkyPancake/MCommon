@@ -1,4 +1,5 @@
 using CalTp.Bootloader.BootloaderLogic;
+using CalTp.TransportProtocol;
 using Serilog;
 
 namespace CalTp.Bootloader;
@@ -17,7 +18,7 @@ public class KinetisBootloader {
     /// </summary>
     public CommonTypes.Version BootloaderVersion { get; private set; } = new(0, 0, 0);
 
-    public SoftwareVersion ApplicationVersion { get; private set; } = new(0, 0, 0);
+    public CommonTypes.Version  ApplicationVersion { get; private set; } = new(0, 0, 0);
 
     /// <summary>
     /// 
@@ -34,7 +35,7 @@ public class KinetisBootloader {
     /// </summary>
     /// <returns></returns>
     public bool Connect() {
-        SoftwareVersion version;
+        CommonTypes.Version  version;
         try {
             if (!_commands.Ping(out version)) {
                 _logger.Error("Cannot connect to the target.");
@@ -47,7 +48,7 @@ public class KinetisBootloader {
         }
 
         _logger.Information("Connection successful.");
-        _logger.Information("Bootloader version = {}.{}.{}", version.Major, version.Minor, version.Bugfix);
+        _logger.Information("Bootloader version = {0}", version);
         BootloaderVersion = version;
         _isConnected = true;
         return true;

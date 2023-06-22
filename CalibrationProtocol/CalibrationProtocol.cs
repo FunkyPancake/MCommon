@@ -1,4 +1,4 @@
-﻿using CalTp.TransportProtocols;
+﻿using CalTp.TransportProtocol;
 using Serilog;
 
 namespace CalTp;
@@ -20,7 +20,7 @@ public class CalibrationProtocol {
 
     public async Task<CmdStatus> Connect() {
         _tp.Connect();
-        var status = await _tp.Query(BuildCommand(Command.Connect), 1);
+        var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1);
         if (status.Status != TpStatus.Ok) {
             ConnectionStatus = false;
             _logger.Error("");
@@ -31,19 +31,19 @@ public class CalibrationProtocol {
     }
 
     public async Task<CmdStatus> Program() {
-        await _tp.Query(BuildCommand(Command.Program), 3);
+        await _tp.QueryAsync(BuildCommand(Command.Program), 3);
         return (CmdStatus) 0;
     }
 
     public async Task<CmdStatus> Disconnect() {
-        await _tp.Query(BuildCommand(Command.Disconnect), 1);
+        await _tp.QueryAsync(BuildCommand(Command.Disconnect), 1);
         _tp.Disconnect();
         ConnectionStatus = false;
         return (CmdStatus) 0;
     }
 
     public async Task<CmdStatus> Reset() {
-        var status = await _tp.Query(BuildCommand(Command.Reset), 1);
+        var status = await _tp.QueryAsync(BuildCommand(Command.Reset), 1);
         return (CmdStatus) status.Status;
     }
 
@@ -52,7 +52,7 @@ public class CalibrationProtocol {
         var sizeBytes = GetSizeBytes((ushort) size);
         var payload = addressBytes.Concat(sizeBytes).ToArray();
         var status =
-            await _tp.Query(
+            await _tp.QueryAsync(
                 BuildCommand(Command.ReadMemory, payload), (byte)size+1);
 
         return ((CmdStatus, byte[])) (status.Status, status.Data);
@@ -63,7 +63,7 @@ public class CalibrationProtocol {
         var sizeBytes = GetSizeBytes((ushort) data.Length);
         var payload = addressBytes.Concat(sizeBytes).Concat(data).ToArray();
         var status =
-            await _tp.Query(
+            await _tp.QueryAsync(
                 BuildCommand(Command.WriteMemory, payload),1);
         
         return (CmdStatus) status.Status;
@@ -86,7 +86,7 @@ public class CalibrationProtocol {
     }
 
     public async Task<CmdStatus> UpdateSoftware() {
-        var status = _tp.Query(BuildCommand(Command.JumpToFbl), 1);
+        var status = _tp.QueryAsync(BuildCommand(Command.JumpToFbl), 1);
         return (CmdStatus) status.Status;
     }
 
