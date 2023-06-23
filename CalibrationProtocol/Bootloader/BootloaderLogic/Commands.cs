@@ -9,17 +9,17 @@ public class Commands {
     private const int CommandTimeoutMs = 500;
     private const byte StartByte = 0x5A;
     private const int AckTimeoutMs = 1000;
+    private const int AttemptCounter = 3;
     private readonly ILogger _logger;
     private readonly ITransportProtocol _tp;
     private ushort Options;
-    private const int AttemptCounter = 3;
-
-    public CommonTypes.Version FblVersion { get; private set; }
 
     public Commands(ILogger logger, ITransportProtocol tp) {
         _logger = logger;
         _tp = tp;
     }
+
+    public CommonTypes.Version FblVersion { get; private set; }
 
     #region Bootloader Commands
 
@@ -46,44 +46,63 @@ public class Commands {
         return false;
     }
 
-    public void FLashEraseAll() {
+    public async Task<ResponseCode> FLashEraseAll(uint memoryId = 0) {
+        return await CommandNoData(new Command(CommandType.SetProperty, false,
+            new[] {memoryId}));
     }
 
-    public void FlashEraseRegion() {
+    public async Task<ResponseCode> FlashEraseRegion(uint startAddress, uint byteCount, uint memoryId = 0) {
+        return await CommandNoData(new Command(CommandType.SetProperty, false,
+            new[] {startAddress, byteCount, memoryId}));
     }
 
-    public void ReadMemory() {
+    public async Task<(ResponseCode,byte[])> ReadMemory() {
+         await CommandDataIn();
+         return (ResponseCode.Fail, new byte[]{});
     }
 
-    public void WriteMemory() {
+
+    public async Task<ResponseCode> WriteMemory() {
+        return await CommandDataOut();
     }
 
-    //Supported when security enabled
-    public void FLashSecurityDisable() {
+
+    public async Task<ResponseCode> FLashSecurityDisable(ulong key) {
+        return await CommandNoData(new Command(CommandType.SetProperty, false,
+            new[] {(uint) (key & 0xffffffff), (uint) (key >> 32)}));
     }
 
-    public void GetProperty() {
+    public async Task<(ResponseCode, uint)> GetProperty(PropertyTag property) {
+        await SendCommand(new Command(CommandType.GetProperty, false, new[] {(uint) property}));
+         await GetGetPropertyResponse();
+         return (ResponseCode.Fail, 0);
     }
 
-    public async Task<bool> Execute(uint jumpAddr, uint arg, uint stackPtrAddr) {
-        await SendCommand(new Command(CommandType.Execute, false, new[] {jumpAddr, arg, stackPtrAddr}));
-        return await GetGenericResponse(CommandType.Execute) == ResponseCode.Success;
-        
+
+    public async Task<ResponseCode> Execute(uint jumpAddr, uint arg, uint stackPtrAddr) {
+        return await CommandNoData(new Command(CommandType.Execute, false, new[] {jumpAddr, arg, stackPtrAddr}));
     }
 
-    public void Reset() {
-        CommandNoData(new Command(CommandType.Reset, false, Array.Empty<uint>()));
+    public async Task<ResponseCode> Reset() {
+        return await CommandNoData(new Command(CommandType.Reset, false, Array.Empty<uint>()));
     }
 
-    public void SetProperty() {
+    public async Task<ResponseCode> SetProperty(PropertyTag property, int value) {
+        return await CommandNoData(new Command(CommandType.SetProperty, false, Array.Empty<uint>()));
     }
 
-    public void FlashEraseAllUnsecure() {
+    public async Task<ResponseCode> FlashEraseAllUnsecure() {
+        return await CommandNoData(new Command(CommandType.FlashEraseAllUnsecure, false, Array.Empty<uint>()));
     }
 
     #endregion
 
     #region Commands Implementation
+
+    private async Task<ResponseCode> GetGetPropertyResponse() {
+        // throw new NotImplementedException();
+        return ResponseCode.Fail;
+    }
 
     private bool ProcessCommandNoData() {
         return false;
@@ -91,37 +110,45 @@ public class Commands {
 
 
     private async Task<ResponseCode> CommandNoData(Command command) {
-        SendCommand(command);
-        SendCommand(command);
-        // WaitForAck();
+        await SendCommand(command);
+        await WaitForAck();
 
         var resp = ResponseCode.Fail;
         for (var i = AttemptCounter; i > 0; i--) {
-            // resp = GetGenericResponse(command.Type);
-            // if (resp != ResponseCode.Success) {
-                // SendNack();
-            // }
-            // else {
-                // SendAck();
-                // break;
-            // }
+            resp = await GetGenericResponse(command.Type);
+            if (resp is ResponseCode.AppCrcCheckOutOfRange or ResponseCode.Fail or ResponseCode.Timeout) {
+                SendNack();
+            }
+            else {
+                SendAck();
+                break;
+            }
         }
 
         return resp;
     }
 
+    private async Task WaitForAck() {
+        // throw new NotImplementedException();
+    }
+
+    private async Task CommandDataIn() {
+        throw new NotImplementedException();
+    }
+
     private async Task SendCommand(Command command) {
         var request = PacketWrapper.BuildCommandPacket(command);
-        _logger.Warning("{0}",request);
+        _logger.Warning("{0}", request);
         await _tp.WriteAsync(request);
     }
 
     private void SendNack() {
-        throw new NotImplementedException();
+        // throw new NotImplementedException();
     }
 
     private async Task<ResponseCode> GetGenericResponse(CommandType commandType) {
-        var status = PacketWrapper.ParseGenericResponse(await _tp.ReadAsync(PacketWrapper.GenericResponseLen), out var tag);
+        var status =
+            PacketWrapper.ParseGenericResponse(await _tp.ReadAsync(PacketWrapper.GenericResponseLen), out var tag);
         if (commandType != tag) {
             _logger.Error("Command tag mismatch. Expected {0}, received {1}", commandType, tag);
             return ResponseCode.Fail;
@@ -152,6 +179,10 @@ public class Commands {
         return (ResponseCode) response.Parameters[0];
     }
 
+    private async Task<ResponseCode> CommandDataOut() {
+        throw new NotImplementedException();
+    }
+
     private static ushort CalcCrc(IReadOnlyList<byte> packet) {
         uint crc = 0;
         uint j;
@@ -173,4 +204,7 @@ public class Commands {
     }
 
     #endregion
+}
+
+public enum PropertyTag {
 }
