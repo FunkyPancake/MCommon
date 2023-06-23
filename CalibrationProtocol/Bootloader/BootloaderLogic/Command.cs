@@ -1,18 +1,14 @@
 namespace CalTp.Bootloader.BootloaderLogic;
 
-internal enum Command
-{
-    FlashEraseAll = 0x01,
-    FlashEraseRegion = 0x02,
-    ReadMemory = 0x03,
-    WriteMemory = 0x04,
-    FlashSecurityDisable = 0x06,
-    GetProperty = 0x07,
-    Execute = 0x09,
-    Reset = 0x0B,
-    SetProperty = 0x0C,
-    FlashEraseAllUnsecure = 0x0D,
-    ResponseGeneric = 0xA0,
-    ResponseReadMemory = 0xA3,
-    ResponseGetProperty = 0xA7
+internal struct Command {
+    public CommandType Type;
+    //if Flag is set to true, the data packets will follow in the commands sequence
+    public bool Flag;
+    public uint[] Parameters;
+
+    public Command(CommandType type, bool flag, uint[] parameters) {
+        Type = type;
+        Flag = flag;
+        Parameters = parameters;
+    }
 }

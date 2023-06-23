@@ -1,30 +1,48 @@
 namespace CalTp.Bootloader.BootloaderLogic;
 
 internal static class PacketWrapper {
+    #region FramingPacket
+
     private const byte StartByte = 0x5A;
     private const byte FramingPacketHeaderLen = 6;
-
+    public const int GenericResponseLen = 18;
     public static byte[] BuildFramingPacket(PacketType packetType, byte[]? payload = null) {
-        var header = new List<byte> {
-            StartByte, (byte) packetType
-        };
         if (payload is null) {
-            return header.ToArray();
+            return new[] {StartByte, (byte) packetType};
         }
 
         var len = payload.Length;
-        header.AddRange(new[] {(byte) (len & 0xff), (byte) ((len >> 8) & 0xff)});
-        var dataForCrc = header.Concat(payload).ToArray();
-        var crc = CalcCrc(dataForCrc);
+        var header = new[]
+            {StartByte, (byte) packetType, (byte) (len & 0xff), (byte) ((len >> 8) & 0xff)};
+        var crc = CalcCrc(header.AsSpan()[..4], payload.AsSpan());
         var packet = new byte[FramingPacketHeaderLen + payload.Length];
         packet[4] = (byte) (crc & 0xff);
         packet[5] = (byte) ((crc >> 8) & 0xff);
         header.CopyTo(packet, 0);
         payload.CopyTo(packet, FramingPacketHeaderLen);
-        return packet.ToArray();
+        return packet;
     }
 
-    public static byte[] BuildCommandPacket(CommandPacket command) {
+    public static byte[] ParseFramingPacket(byte[] bytes) {
+        if (bytes[0] != StartByte)
+            throw new InvalidDataException();
+
+        var len = bytes[2] + (bytes[3] << 8);
+        var crc = bytes[4] + (bytes[5] << 8);
+        var calcCrc = CalcCrc(bytes.AsSpan()[..4], bytes.AsSpan()[6..]);
+        if (len + FramingPacketHeaderLen != bytes.Length || calcCrc != crc) {
+            throw new InvalidDataException();
+        }
+
+        var payload = bytes[6..];
+        return payload;
+    }
+
+    #endregion
+
+    #region CommandPacket
+
+    public static byte[] BuildCommandPacket(Command command) {
         var len = command.Parameters.Length;
         if (len > 7)
             throw new ArgumentException("Parameters array larger than 7");
@@ -39,27 +57,11 @@ internal static class PacketWrapper {
         return BuildFramingPacket(PacketType.Command, commandPacket);
     }
 
-    public static byte[] ParseFramingPacket(byte[] bytes) {
-        if (bytes[0] != StartByte)
-            throw new InvalidDataException();
-
-        var len = bytes[2] + (bytes[3] << 8);
-        var crc = bytes[4] + (bytes[5] << 8);
-        var arrayForCrcCalc = bytes[..4].Concat(bytes[6..]).ToArray();
-        var calcCrc = CalcCrc(arrayForCrcCalc);
-        if (len + FramingPacketHeaderLen != bytes.Length || calcCrc != crc) {
-            throw new InvalidDataException();
-        }
-
-        var payload = bytes[6..];
-        return payload;
-    }
-
-    public static CommandPacket ParseCommandPacket(byte[] bytes) {
-        var command = new CommandPacket();
+    public static Command ParseCommandPacket(byte[] bytes) {
+        var command = new Command();
         var response = ParseFramingPacket(bytes);
 
-        command.Type = (Command) response[0];
+        command.Type = (CommandType) response[0];
         command.Flag = response[1] == 1;
         var paramCount = response[3];
         if ((response.Length - 4) / 4 != paramCount) {
@@ -74,26 +76,46 @@ internal static class PacketWrapper {
         return command;
     }
 
+    #endregion
 
-    public static bool ParsePingResponse(byte[] bytes, out byte[] response) {
-        response = Array.Empty<byte>();
-        if (bytes.Length != 10 || bytes[0] != StartByte || bytes[1] != (byte) PacketType.PingResponse) {
-            return false;
-        }
+    public static ResponseCode ParseGenericResponse(byte[] response, out CommandType commandTag) {
+        var command = ParseCommandPacket(response);
+        if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
+            throw new ApplicationException("");
+        var statusCode = (ResponseCode) command.Parameters[0];
+        commandTag = (CommandType) command.Parameters[1];
+        return statusCode;
+    }
 
-        response = bytes[2..8];
-        var crc = bytes[8] + (bytes[9] << 8);
-        return crc == CalcCrc(bytes[..8]);
+    public static ResponseCode ParseGetPropertyResponse(Command command, out CommandType commandTag) {
+        if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
+            throw new ApplicationException("");
+        var statusCode = (ResponseCode) command.Parameters[0];
+        commandTag = (CommandType) command.Parameters[1];
+        return statusCode;
+    }
+    public static ResponseCode ParseReadMemoryResponse(Command command, out CommandType commandTag) {
+        if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
+            throw new ApplicationException("");
+        var statusCode = (ResponseCode) command.Parameters[0];
+        commandTag = (CommandType) command.Parameters[1];
+        return statusCode;
     }
 
     public static bool ParseAck(byte[] bytes) {
         return bytes[0] == StartByte && bytes[1] == (byte) PacketType.Ack;
     }
 
-    private static ushort CalcCrc(IReadOnlyList<byte> packet) {
+    private static ushort CalcCrc(ReadOnlySpan<byte> header, ReadOnlySpan<byte> payload) {
         uint crc = 0;
+        crc = CalcCrcInternal(crc, header);
+        crc = CalcCrcInternal(crc, payload);
+        return (ushort) crc;
+    }
+
+    private static ushort CalcCrcInternal(uint crc, ReadOnlySpan<byte> packet) {
         uint j;
-        for (j = 0; j < packet.Count; ++j) {
+        for (j = 0; j < packet.Length; ++j) {
             uint i;
             uint b = packet[(int) j];
             crc ^= b << 8;
