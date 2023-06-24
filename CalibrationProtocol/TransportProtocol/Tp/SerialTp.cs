@@ -58,6 +58,14 @@ public class SerialTp : ITransportProtocol, IDisposable {
         _serialPort.Close();
     }
 
+    public Task<byte[]> QueryAsync(byte[] request, int responseLength, CancellationToken token, int pingTimeoutMs) {
+        throw new NotImplementedException();
+    }
+
+    public Task<byte[]> ReverseQuertAsync() {
+        throw new NotImplementedException();
+    }
+
     public async Task<(TpStatus Status, byte[] Data)> QueryAsync(byte[] command, int responseLength) {
         if (!_serialPort.IsOpen) {
             _logger.Error("Interface not connected.");
@@ -102,6 +110,18 @@ public class SerialTp : ITransportProtocol, IDisposable {
     }
 
     public event EventHandler? OnNewAsyncMessage;
+    public Task<byte[]> QueryAsync(byte[] request, int pingRespLen, CancellationToken token) {
+        throw new NotImplementedException();
+    }
+
+    public Task<byte[]> ReadAsync(int count, int byteCount) {
+        throw new NotImplementedException();
+    }
+
+    public Task WriteAsync(byte[] data) {
+        throw new NotImplementedException();
+    }
+
     public void Send(byte[] cmd) {
         throw new NotImplementedException();
     }

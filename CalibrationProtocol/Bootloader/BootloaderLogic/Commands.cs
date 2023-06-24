@@ -3,7 +3,19 @@ using Serilog;
 using Version = CommonTypes.Version;
 
 namespace CalTp.Bootloader.BootloaderLogic;
+/*TODO:
+    - Write Memory high level
+    - Read Memory low level
+    - Parse Parameter Response
+    - Repeat counter
+    - error handling
+    - Command data in
+    - Command data out
+    - Command no data
+    - testy wszystkich komend
+    
 
+*/
 public class Commands {
     private const int PingTimeoutMs = 1000;
     private const int CommandTimeoutMs = 500;
@@ -19,32 +31,23 @@ public class Commands {
         _tp = tp;
     }
 
-    public CommonTypes.Version FblVersion { get; private set; }
+    public Version FblVersion { get; private set; }
 
     #region Bootloader Commands
 
-    public async Task<bool> Ping() {
+    /// <summary>
+    /// Ping is special case that dont follow normal format
+    /// </summary>
+    /// <returns></returns>
+    public async Task<ResponseCode> Ping() {
         const int respLen = 10;
-        var cancellationToken = CancellationToken.None;
-        var task = _tp.QueryAsync(PacketWrapper.BuildFramingPacket(PacketType.Ping), respLen, cancellationToken);
-        if (await Task.WhenAny(task, Task.Delay(PingTimeoutMs, cancellationToken)) == task &&
-            task.IsCompletedSuccessfully) {
-            var response = await task;
-            var crc = response[respLen - 2] + (response[respLen - 1] << 8);
-            if (response[0] != StartByte || response[1] != (byte) PacketType.PingResponse ||
-                crc != CalcCrc(response[..(respLen - 2)])) {
-                _logger.Error("");
-                return false;
-            }
-
-            FblVersion = new Version(response[4], response[3], response[2]);
-            Options = (ushort) ((response[7] << 8) + response[6]);
-            return true;
-        }
-
-        _logger.Error("");
-        return false;
+        return await SendQueryAsync(PacketWrapper.BuildFramingPacket(PacketType.Ping), respLen, PingTimeoutMs,
+            x => {
+                (FblVersion, Options) = PacketWrapper.ParsePingResponse(x);
+                return ResponseCode.Success;
+            });
     }
+
 
     public async Task<ResponseCode> FLashEraseAll(uint memoryId = 0) {
         return await CommandNoData(new Command(CommandType.SetProperty, false,
@@ -56,9 +59,9 @@ public class Commands {
             new[] {startAddress, byteCount, memoryId}));
     }
 
-    public async Task<(ResponseCode,byte[])> ReadMemory() {
-         await CommandDataIn();
-         return (ResponseCode.Fail, new byte[]{});
+    public async Task<(ResponseCode, byte[])> ReadMemory() {
+        await CommandDataIn();
+        return (ResponseCode.Fail, new byte[] { });
     }
 
 
@@ -74,8 +77,8 @@ public class Commands {
 
     public async Task<(ResponseCode, uint)> GetProperty(PropertyTag property) {
         await SendCommand(new Command(CommandType.GetProperty, false, new[] {(uint) property}));
-         await GetGetPropertyResponse();
-         return (ResponseCode.Fail, 0);
+        await GetGetPropertyResponse();
+        return (ResponseCode.Fail, 0);
     }
 
 
@@ -115,7 +118,7 @@ public class Commands {
 
         var resp = ResponseCode.Fail;
         for (var i = AttemptCounter; i > 0; i--) {
-            resp = await GetGenericResponse(command.Type);
+            resp = await GetGenericResponse(command.Type, TODO);
             if (resp is ResponseCode.AppCrcCheckOutOfRange or ResponseCode.Fail or ResponseCode.Timeout) {
                 SendNack();
             }
@@ -129,11 +132,25 @@ public class Commands {
     }
 
     private async Task WaitForAck() {
-        // throw new NotImplementedException();
+        _tp.ReadAsync(2, AckTimeoutMs);
     }
 
     private async Task CommandDataIn() {
         throw new NotImplementedException();
+    }
+
+    private async Task<ResponseCode> SendQueryAsync(byte[] requestBy, int responseLen, int timeout,
+        Func<byte[], ResponseCode> action) {
+        var cancellationToken = CancellationToken.None;
+        var task = _tp.QueryAsync(PacketWrapper.BuildFramingPacket(PacketType.Ping), responseLen,
+            cancellationToken);
+        if (await Task.WhenAny(task, Task.Delay(PingTimeoutMs, cancellationToken)) == task &&
+            task.IsCompletedSuccessfully) {
+            var response = await task;
+            return action(response);
+        }
+
+        return ResponseCode.Timeout;
     }
 
     private async Task SendCommand(Command command) {
@@ -143,12 +160,17 @@ public class Commands {
     }
 
     private void SendNack() {
-        // throw new NotImplementedException();
+        await _tp.WriteAsync(PacketWrapper.BuildFramingPacket(PacketType.Nak));
     }
 
-    private async Task<ResponseCode> GetGenericResponse(CommandType commandType) {
+    private async void SendAck() {
+        await _tp.WriteAsync(PacketWrapper.BuildFramingPacket(PacketType.Ack));
+    }
+
+    private async Task<ResponseCode> GetGenericResponse(CommandType commandType, int timeout = DefaultTmeoutMs) {
         var status =
-            PacketWrapper.ParseGenericResponse(await _tp.ReadAsync(PacketWrapper.GenericResponseLen), out var tag);
+            PacketWrapper.ParseGenericResponse(await _tp.ReadAsync(PacketWrapper.GenericResponseLen, timeout),
+                out var tag);
         if (commandType != tag) {
             _logger.Error("Command tag mismatch. Expected {0}, received {1}", commandType, tag);
             return ResponseCode.Fail;
@@ -156,6 +178,8 @@ public class Commands {
 
         return status;
     }
+
+    private const int DefaultTmeoutMs = 1;
 
     private async Task<bool> SendCommandsGetAck(byte[] request) {
         await _tp.QueryAsync(request, 2, new CancellationToken(), AckTimeoutMs);
@@ -167,40 +191,12 @@ public class Commands {
     }
 
 
-    private async void SendAck() {
-        await _tp.WriteAsync(PacketWrapper.BuildFramingPacket(PacketType.Ack));
-    }
-
-    private async Task<bool> GetAck() {
-        return PacketWrapper.ParseAck(await _tp.ReadAsync(2));
-    }
-
     private ResponseCode GetResponseCode(Command response) {
         return (ResponseCode) response.Parameters[0];
     }
 
     private async Task<ResponseCode> CommandDataOut() {
         throw new NotImplementedException();
-    }
-
-    private static ushort CalcCrc(IReadOnlyList<byte> packet) {
-        uint crc = 0;
-        uint j;
-        for (j = 0; j < packet.Count; ++j) {
-            uint i;
-            uint b = packet[(int) j];
-            crc ^= b << 8;
-            for (i = 0; i < 8; ++i) {
-                var temp = crc << 1;
-                if ((crc & 0x8000) == 0x8000) {
-                    temp ^= 0x1021;
-                }
-
-                crc = temp;
-            }
-        }
-
-        return (ushort) crc;
     }
 
     #endregion

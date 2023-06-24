@@ -1,6 +1,9 @@
 ﻿using CalTp.TransportProtocol;
+using CalTp.TransportProtocol.Tp;
+using CommonTypes;
+using IntelHex;
 using Serilog;
-
+using Version = CommonTypes.Version;
 namespace CalTp;
 
 public enum CmdStatus {
@@ -14,6 +17,10 @@ public class CalibrationProtocol {
     public CalibrationProtocol(ILogger logger, ITransportProtocol tp) {
         _logger = logger;
         _tp = tp;
+    }
+    public CalibrationProtocol(ILogger logger, (uint rx,uint tx) frames) {
+        _logger = logger;
+        _tp = new CanTp(rx,tx);
     }
 
     public bool ConnectionStatus { get; private set; }
@@ -30,7 +37,7 @@ public class CalibrationProtocol {
         return CmdStatus.Ok;
     }
 
-    public async Task<CmdStatus> Program() {
+    public async Task<CmdStatus> Program(Hex swPackageHex) {
         await _tp.QueryAsync(BuildCommand(Command.Program), 3);
         return (CmdStatus) 0;
     }
@@ -123,4 +130,13 @@ public class CalibrationProtocol {
     private byte[] GetSizeBytes(ushort value) {
         return BitConverter.GetBytes(value);
     }
+
+    public EcuIdent GetEcuIdent() {
+        throw new NotImplementedException();
+    }
+
+    public Version GetSwVersion() {
+        throw new NotImplementedException();
+    }
+
 }

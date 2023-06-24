@@ -1,3 +1,4 @@
+using Version = CommonTypes.Version;
 namespace CalTp.Bootloader.BootloaderLogic;
 
 internal static class PacketWrapper {
@@ -5,7 +6,8 @@ internal static class PacketWrapper {
 
     private const byte StartByte = 0x5A;
     private const byte FramingPacketHeaderLen = 6;
-    public const int GenericResponseLen = 18;
+    private const int GenericResponseLen = 18;
+
     public static byte[] BuildFramingPacket(PacketType packetType, byte[]? payload = null) {
         if (payload is null) {
             return new[] {StartByte, (byte) packetType};
@@ -36,6 +38,18 @@ internal static class PacketWrapper {
 
         var payload = bytes[6..];
         return payload;
+    }
+
+    public static (Version,ushort) ParsePingResponse(byte[] bytes) {
+        const int respLen = 10;
+        var crc = bytes[respLen - 2] + (bytes[respLen - 1] << 8);
+        if (bytes[0] != StartByte || bytes[1] != (byte) PacketType.PingResponse ||
+            crc != CalcCrc(bytes[..(respLen - 2)], Array.Empty<byte>())) {
+            throw new InvalidDataException();
+        }
+        var fblVersion = new Version(bytes[4], bytes[3], bytes[2]);
+        var options = (ushort) ((bytes[7] << 8) + bytes[6]);
+        return (fblVersion, options);
     }
 
     #endregion
@@ -94,6 +108,7 @@ internal static class PacketWrapper {
         commandTag = (CommandType) command.Parameters[1];
         return statusCode;
     }
+
     public static ResponseCode ParseReadMemoryResponse(Command command, out CommandType commandTag) {
         if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
             throw new ApplicationException("");
