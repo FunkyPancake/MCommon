@@ -150,11 +150,24 @@ public class TestCommands : IDisposable {
 
     [Fact]
     public async void Test_SetProperty() {
-        Assert.True(false);
+        const PropertyTag propertyTag = PropertyTag.VerifyWrites;
+        const uint propertyValue = 1;
+        var requestExpected = new byte[] {
+            0x5A , 0xA4 , 0x0C , 0x00 , 0x67 , 0x8D , 0x0C , 0x00 , 0x00 , 0x02 , 0x0A , 0x00 , 0x00 , 0x00 , 0x01 , 0x00 , 0x00 , 0x00
+        };
+        var responseBytes = new byte[] {
+            0x5A , 0xA4 , 0x00 , 0x9E , 0x10 , 0xA0 , 0x00 , 0x0C , 0x02 , 0x00 , 0x00 , 0x00 , 0x00 , 0x0C , 0x00 , 0x00 , 0x00};
+        await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.SetProperty(propertyTag,propertyValue));
     }
 
     [Fact]
     public async void Test_FlashEraseAllUnsecure() {
-        Assert.True(false);
+        var requestExpected = new byte[] {
+            0x5A, 0xA4, 0x04, 0x00, 0xF6, 0x61, 0x0D, 0x00, 0x00, 0x00
+        };
+        var responseBytes = new byte[] {
+            0x5A, 0xA4, 0x0C, 0x00, 0x61, 0x2C, 0xA0, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x0D, 0x00, 0x00, 0x00
+        };
+        await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.FlashEraseAllUnsecure());
     }
 }
