@@ -2,7 +2,7 @@ using CalTp.TransportProtocol;
 using Serilog;
 using Version = CommonTypes.Version;
 
-namespace CalTp.Bootloader.BootloaderLogic;
+namespace CalTp.Bootloader;
 
 /*TODO:
     - Write Memory high level
@@ -158,7 +158,7 @@ public partial class FblCommands {
         await _tp.WriteAsync(request);
     }
 
-    private void SendNack() {
+    private async void SendNack() {
         await _tp.WriteAsync(BuildFramingPacket(PacketType.Nak));
     }
 

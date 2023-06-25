@@ -1,5 +1,5 @@
 using Version = CommonTypes.Version;
-namespace CalTp.Bootloader.BootloaderLogic;
+namespace CalTp.Bootloader;
 
 public partial class  FblCommands {
     #region FramingPacket

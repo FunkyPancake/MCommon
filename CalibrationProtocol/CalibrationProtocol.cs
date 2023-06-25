@@ -1,5 +1,4 @@
 ﻿using CalTp.Bootloader;
-using CalTp.Bootloader.BootloaderLogic;
 using CalTp.TransportProtocol;
 using CalTp.TransportProtocol.Tp;
 using CommonTypes;
@@ -31,7 +30,7 @@ public class CalibrationProtocol {
         _fblCommands = new FblCommands(logger, _tp);
     }
 
-    public bool ConnectionStatus { get; } = false;
+    public bool ConnectionStatus { get; private set; } = false;
 
     public async Task<CmdStatus> JumpToFbl() {
         try {
@@ -53,7 +52,7 @@ public class CalibrationProtocol {
 
     public async Task<CmdStatus> Program(Hex swPackageHex) {
         if (ConnectionStatus && _inBootloader) {
-            await _tp.QueryAsync(BuildCommand(Command.Program), 3);
+            // await _tp.QueryAsync(BuildCommand(Command.Program), 3);
             return (CmdStatus) 0;
         }
 
@@ -63,11 +62,11 @@ public class CalibrationProtocol {
     public async Task<CmdStatus> Connect() {
         _tp.Connect();
         var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1, new CancellationToken(), 1);
-        if (status.Status != TpStatus.Ok) {
-            ConnectionStatus = false;
-            _logger.Error("");
-            return CmdStatus.Ok;
-        }
+        // if (status.Status != TpStatus.Ok) {
+        //     ConnectionStatus = false;
+        //     _logger.Error("");
+        //     return CmdStatus.Ok;
+        // }
 
         ConnectionStatus = true;
         return CmdStatus.Ok;
@@ -75,37 +74,41 @@ public class CalibrationProtocol {
 
 
     public async Task<CmdStatus> Disconnect() {
-        await _tp.QueryAsync(BuildCommand(Command.Disconnect), 1);
+        // await _tp.QueryAsync(BuildCommand(Command.Disconnect), 1);
         _tp.Disconnect();
         ConnectionStatus = false;
         return (CmdStatus) 0;
     }
 
     public async Task<CmdStatus> Reset() {
-        var status = await _tp.QueryAsync(BuildCommand(Command.Reset), 1);
-        return (CmdStatus) status.Status;
+        // var status = await _tp.QueryAsync(BuildCommand(Command.Reset), 1);
+        // return (CmdStatus) status.Status;
+        return CmdStatus.Ok;
     }
 
     public async Task<(CmdStatus, byte[])> ReadMemory(uint addr, uint size) {
         var addressBytes = GetAddressBytes(addr);
         var sizeBytes = GetSizeBytes((ushort) size);
         var payload = addressBytes.Concat(sizeBytes).ToArray();
-        var status =
-            await _tp.QueryAsync(
-                BuildCommand(Command.ReadMemory, payload), (byte) size + 1);
+        // var status =
+            // await _tp.QueryAsync();
+                // BuildCommand(Command.ReadMemory, payload), (byte) size + 1);
 
-        return ((CmdStatus, byte[])) (status.Status, status.Data);
+        // return ((CmdStatus, byte[])) (status.Status, status.Data);
+        return (CmdStatus.Ok, Array.Empty<byte>());
+
     }
 
     public async Task<CmdStatus> WriteMemory(uint addr, byte[] data) {
         var addressBytes = GetAddressBytes(addr);
         var sizeBytes = GetSizeBytes((ushort) data.Length);
         var payload = addressBytes.Concat(sizeBytes).Concat(data).ToArray();
-        var status =
-            await _tp.QueryAsync(
-                BuildCommand(Command.WriteMemory, payload), 1);
+        // var status =
+            // await _tp.QueryAsync(
+                // BuildCommand(Command.WriteMemory, payload), 1);
 
-        return (CmdStatus) status.Status;
+        // return (CmdStatus) status.Status;
+        return CmdStatus.Ok;
     }
 
     public async Task<CmdStatus> ConfigureCyclicReadBlock(int readFrequency, int size, Tuple<uint, uint>[] blockDesc) {
