@@ -44,6 +44,7 @@ public class TestCommands : IDisposable {
 
     [Fact]
     public async void Test_Ping() {
+        var expectedFblVersion = new CommonTypes.Version(1, 2, 0);
         var requestExpected = new byte[] {
             0x5A, 0xA6
         };
@@ -51,22 +52,44 @@ public class TestCommands : IDisposable {
             0x5A, 0xA7, 0x00, 0x02, 0x01, 0x50, 0x00, 0x00, 0xAA, 0xEA
         };
         await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.Ping());
+        Assert.Equal(0, _fblCommands.Options);
+        Assert.Equal(expectedFblVersion, _fblCommands.FblVersion);
     }
 
     [Fact]
     public async void Test_FlashEraseAll() {
+        var requestExpected = new byte[] {
+            0x5A, 0xA4, 0x04, 0x00, 0xC4, 0x2E, 0x01, 0x00, 0x00, 0x00
+        };
+        var responseBytes = new byte[] {
+            0x5A, 0xA4, 0x0C, 0x00, 0x53, 0x63, 0xA0, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
+        };
+        await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.FLashEraseAll());
     }
 
     [Fact]
     public async void Test_FlashEraseRegion() {
+        uint startAddress = 0;
+        uint byteCount = 1024;
+        var requestExpected = new byte[] {
+            0x5A, 0xA4, 0x10, 0x00, 0x78, 0x06, 0x02, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00
+        };
+        var responseBytes = new byte[] {
+            0x5A, 0xA4, 0x0C, 0x00, 0xBA, 0x55, 0xA0, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00
+        };
+        await CheckCommandNoData(requestExpected, responseBytes,
+            () => _fblCommands.FlashEraseRegion(startAddress, byteCount));
     }
 
     [Fact]
     public async void Test_ReadMemory() {
+        Assert.True(false);
     }
 
     [Fact]
     public async void Test_WriteMemory() {
+        Assert.True(false);
     }
 
     [Fact]
@@ -127,9 +150,11 @@ public class TestCommands : IDisposable {
 
     [Fact]
     public async void Test_SetProperty() {
+        Assert.True(false);
     }
 
     [Fact]
     public async void Test_FlashEraseAllUnsecure() {
+        Assert.True(false);
     }
 }

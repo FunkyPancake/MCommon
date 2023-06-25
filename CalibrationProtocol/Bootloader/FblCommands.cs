@@ -47,14 +47,14 @@ public partial class FblCommands {
     }
 
 
-    public async Task<ResponseCode> FLashEraseAll(uint memoryId = 0) {
-        return await CommandNoData(new Command(CommandType.SetProperty, false,
-            new[] {memoryId}), FlashCommandTimeoutMs);
+    public async Task<ResponseCode> FLashEraseAll() {
+        return await CommandNoData(new Command(CommandType.FlashEraseAll, false,
+            Array.Empty<uint>()), FlashCommandTimeoutMs);
     }
 
 
     public async Task<ResponseCode> FlashEraseRegion(uint startAddress, uint byteCount, uint memoryId = 0) {
-        return await CommandNoData(new Command(CommandType.SetProperty, false,
+        return await CommandNoData(new Command(CommandType.FlashEraseRegion, false,
             new[] {startAddress, byteCount, memoryId}), FlashCommandTimeoutMs);
     }
 
