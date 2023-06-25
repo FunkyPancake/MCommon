@@ -61,7 +61,7 @@ public class CalibrationProtocol {
 
     public async Task<CmdStatus> Connect() {
         _tp.Connect();
-        var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1, new CancellationToken(), 1);
+        // var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1, new CancellationToken(), 1);
         // if (status.Status != TpStatus.Ok) {
         //     ConnectionStatus = false;
         //     _logger.Error("");

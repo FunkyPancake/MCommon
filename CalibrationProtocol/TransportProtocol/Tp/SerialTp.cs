@@ -110,6 +110,14 @@ public class SerialTp : ITransportProtocol, IDisposable {
     }
 
     public event EventHandler? OnNewAsyncMessage;
+    public Task<(TpStatus status, byte[] data)> ReadAsync(int count, uint timeout, CancellationToken token = default) {
+        throw new NotImplementedException();
+    }
+
+    public Task WriteAsync(byte[] data) {
+        throw new NotImplementedException();
+    }
+
     public Task<byte[]> QueryAsync(byte[] request, int pingRespLen, CancellationToken token) {
         throw new NotImplementedException();
     }
@@ -118,7 +126,12 @@ public class SerialTp : ITransportProtocol, IDisposable {
         throw new NotImplementedException();
     }
 
-    public Task WriteAsync(byte[] data) {
+    public Task<byte[]> ReadAsync(int count, CancellationToken token, int pingTimeoutMs) {
+        throw new NotImplementedException();
+    }
+
+
+    public Task Write(byte[] data) {
         throw new NotImplementedException();
     }
 

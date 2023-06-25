@@ -1,7 +1,8 @@
 using Version = CommonTypes.Version;
+
 namespace CalTp.Bootloader;
 
-public partial class  FblCommands {
+public partial class FblCommands {
     #region FramingPacket
 
     private const byte StartByte = 0x5A;
@@ -42,12 +43,13 @@ public partial class  FblCommands {
         return payload;
     }
 
-    private static (Version,ushort) ParsePingResponse(byte[] bytes) {
+    private static (Version, ushort) ParsePingResponse(byte[] bytes) {
         var crc = bytes[PingResponseLen - 2] + (bytes[PingResponseLen - 1] << 8);
         if (bytes[0] != StartByte || bytes[1] != (byte) PacketType.PingResponse ||
             crc != CalcCrc(bytes.AsSpan()[..(PingResponseLen - 2)], Array.Empty<byte>())) {
             throw new InvalidDataException();
         }
+
         var fblVersion = new Version(bytes[4], bytes[3], bytes[2]);
         var options = (ushort) ((bytes[7] << 8) + bytes[6]);
         return (fblVersion, options);
@@ -62,7 +64,7 @@ public partial class  FblCommands {
         if (len > 7)
             throw new ArgumentException("Parameters array larger than 7");
         var commandPacket = new byte[4 + 4 * len];
-        var header = new byte[] {(byte) command.Type, (byte) (command.Flag ? 1 : 0), 0, (byte) len};
+        var header = new byte[] {(byte) command.Type, (byte) (command.HasDataPhase ? 1 : 0), 0, (byte) len};
         header.CopyTo(commandPacket, 0);
         for (var i = 0; i < len; i++) {
             var bytes = BitConverter.GetBytes(command.Parameters[i]);
@@ -77,7 +79,7 @@ public partial class  FblCommands {
         var response = ParseFramingPacket(bytes);
 
         command.Type = (CommandType) response[0];
-        command.Flag = response[1] == 1;
+        command.HasDataPhase = response[1] == 1;
         var paramCount = response[3];
         if ((response.Length - 4) / 4 != paramCount) {
             throw new InvalidDataException();
@@ -118,14 +120,16 @@ public partial class  FblCommands {
         return statusCode;
     }
 
-    private static bool ParseAck(byte[] bytes) {
-        return bytes[0] == StartByte && bytes[1] == (byte) PacketType.Ack;
+    private static ResponseCode ParseAck(IReadOnlyList<byte> bytes) {
+        return bytes[0] == StartByte && bytes[1] == (byte) PacketType.Ack ? ResponseCode.Success : ResponseCode.Fail;
     }
+
     private static ushort CalcCrc(ReadOnlySpan<byte> data) {
         uint crc = 0;
         crc = CalcCrcInternal(crc, data);
         return (ushort) crc;
     }
+
     private static ushort CalcCrc(ReadOnlySpan<byte> header, ReadOnlySpan<byte> payload) {
         uint crc = 0;
         crc = CalcCrcInternal(crc, header);

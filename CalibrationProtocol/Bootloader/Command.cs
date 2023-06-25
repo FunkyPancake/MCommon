@@ -3,12 +3,12 @@ namespace CalTp.Bootloader;
 internal struct Command {
     public CommandType Type;
     //if Flag is set to true, the data packets will follow in the commands sequence
-    public bool Flag;
+    public bool HasDataPhase;
     public uint[] Parameters;
 
-    public Command(CommandType type, bool flag, uint[] parameters) {
+    public Command(CommandType type, bool hasDataPhase, uint[] parameters) {
         Type = type;
-        Flag = flag;
+        HasDataPhase = hasDataPhase;
         Parameters = parameters;
     }
 }

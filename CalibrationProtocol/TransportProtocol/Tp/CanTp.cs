@@ -5,6 +5,7 @@ public class CanTp : ITransportProtocol {
         
     }
 
+
     public IEnumerable<int> GetAvailableChannels() {
         throw new NotImplementedException();
     }
@@ -17,16 +18,12 @@ public class CanTp : ITransportProtocol {
         throw new NotImplementedException();
     }
 
-    public Task<byte[]> QueryAsync(byte[] request, int responseLength, CancellationToken token, int pingTimeoutMs) {
-        throw new NotImplementedException();
-    }
-
     public event EventHandler? OnNewAsyncMessage;
-    public Task<byte[]> QueryAsync(byte[] request, int pingRespLen, CancellationToken token) {
+    public Task<byte[]> ReadAsync(int count, int pingTimeoutMs, CancellationToken token) {
         throw new NotImplementedException();
     }
 
-    public Task<byte[]> ReadAsync(int count, int byteCount) {
+    public Task<(TpStatus status, byte[] data)> ReadAsync(int count, uint timeout, CancellationToken token = default) {
         throw new NotImplementedException();
     }
 
