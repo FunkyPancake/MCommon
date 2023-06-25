@@ -25,17 +25,21 @@ public class TestCommands : IDisposable {
 
     private async Task CheckCommandNoData(byte[] expectedRequest, byte[] responseBytes,
         Func<Task<ResponseCode>> command) {
+        PrepareChecks(responseBytes);
+        Predicate<byte[]> isSequenceEqual = s => s.SequenceEqual(expectedRequest);
+        var response = await command.Invoke();
+
+        Assert.Equal(ResponseCode.Success, response);
+        _iTpMock.Verify(m => m.WriteAsync(Match.Create(isSequenceEqual)));
+    }
+
+    private void PrepareChecks(byte[] responseBytes) {
         byte[] ackBytes = {0x5A, 0xA1};
         _iTpMock.Setup(x => x.ReadAsync(It.IsAny<int>(), It.IsAny<uint>(), CancellationToken.None)).ReturnsAsync(
             (TpStatus.Ok, responseBytes));
         _iTpMock.Setup(x => x.ReadAsync(2, It.IsAny<uint>(), CancellationToken.None))
             .ReturnsAsync((TpStatus.Ok, ackBytes));
         _iTpMock.Setup(x => x.WriteAsync(It.IsAny<byte[]>()));
-        Predicate<byte[]> isSequenceEqual = s => s.SequenceEqual(expectedRequest);
-        var response = await command.Invoke();
-
-        Assert.Equal(ResponseCode.Success, response);
-        _iTpMock.Verify(m => m.WriteAsync(Match.Create(isSequenceEqual)));
     }
 
     [Fact]
@@ -72,13 +76,28 @@ public class TestCommands : IDisposable {
             0x5A, 0xA4, 0x0C, 0x00, 0x43, 0x7B, 0x06, 0x00, 0x00, 0x02, 0x04, 0x03, 0x02, 0x01, 0x08, 0x07, 0x06, 0x05
         };
         var responseBytes = new byte[] {
-            0x5A, 0xA4, 0x0C, 0x00, 0x90, 0xe6, 0xA0, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x09, 00, 00, 00
+            0x5A, 0xA4, 0x0C, 0x00, 0x35, 0x78, 0xA0, 0x00, 0x0C, 0x02, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00
         };
         await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.FLashSecurityDisable(key));
     }
 
     [Fact]
     public async void Test_GetProperty() {
+        const PropertyTag propertyTag = PropertyTag.CurrentVersion;
+        const uint expectedPropertyValue = 0x0000014b;
+        var requestExpected = new byte[] {
+            0x5A, 0xA4, 0x08, 0x00, 0x73, 0xD4, 0x07, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00
+        };
+        var responseBytes = new byte[] {
+            0x5A, 0xA4, 0x0C, 0x00, 0x07, 0x7A, 0xA7, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x4B
+        };
+        PrepareChecks(responseBytes);
+
+        var result = await _fblCommands.GetProperty(propertyTag);
+        Predicate<byte[]> isSequenceEqual = s => s.SequenceEqual(requestExpected);
+        _iTpMock.Verify(m => m.WriteAsync(Match.Create(isSequenceEqual)));
+        Assert.Equal(ResponseCode.Success, result.Item1);
+        Assert.Equal(expectedPropertyValue, result.Item2);
     }
 
     [Fact]
@@ -103,7 +122,6 @@ public class TestCommands : IDisposable {
         var responseBytes = new byte[] {
             0x5A, 0xA4, 0x0C, 0x00, 0xF8, 0x0B, 0xA0, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00
         };
-        Predicate<byte[]> isThreeCharsLong = s => s.SequenceEqual(requestExpected);
         await CheckCommandNoData(requestExpected, responseBytes, () => _fblCommands.Reset());
     }
 

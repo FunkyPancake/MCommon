@@ -72,8 +72,8 @@ public partial class FblCommands {
 
 
     public async Task<ResponseCode> FLashSecurityDisable(ulong key) {
-        return await CommandNoData(new Command(CommandType.SetProperty, false,
-            new[] {(uint) (key & 0xffffffff), (uint) (key >> 32)}));
+        return await CommandNoData(new Command(CommandType.FlashSecurityDisable, false,
+            new[] {(uint) (key >> 32),(uint) (key & 0xffffffff)}));
     }
 
     public async Task<(ResponseCode, uint)> GetProperty(PropertyTag property) {
