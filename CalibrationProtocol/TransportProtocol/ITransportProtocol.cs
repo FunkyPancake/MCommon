@@ -4,11 +4,10 @@ public interface ITransportProtocol {
     IEnumerable<int> GetAvailableChannels();
     bool Connect();
     void Disconnect();
-    Task<(TpStatus Status, byte[] Data)> QueryAsync(byte[] command, int responseLength);
-
     event EventHandler? OnNewAsyncMessage;
-    void Send(byte[] cmd);
-    byte[] GetBytes(int i, int timeout);
+    Task<(TpStatus status, byte[] data)> ReadAsync(int count,uint timeout,CancellationToken token = default);
+    Task WriteAsync(byte[] data);
+
 }
 
 public enum TpStatus {

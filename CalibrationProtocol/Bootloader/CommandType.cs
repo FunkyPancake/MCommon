@@ -1,6 +1,6 @@
-namespace CalTp.Bootloader.BootloaderLogic;
+namespace CalTp.Bootloader;
 
-internal enum Command
+internal enum CommandType
 {
     FlashEraseAll = 0x01,
     FlashEraseRegion = 0x02,

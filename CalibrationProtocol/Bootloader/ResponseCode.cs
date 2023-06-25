@@ -1,4 +1,4 @@
-namespace CalTp.Bootloader.BootloaderLogic;
+namespace CalTp.Bootloader;
 
 public enum ResponseCode {
     Success = 0,
