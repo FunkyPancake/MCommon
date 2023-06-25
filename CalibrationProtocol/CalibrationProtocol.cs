@@ -1,9 +1,12 @@
-﻿using CalTp.TransportProtocol;
+﻿using CalTp.Bootloader;
+using CalTp.Bootloader.BootloaderLogic;
+using CalTp.TransportProtocol;
 using CalTp.TransportProtocol.Tp;
 using CommonTypes;
 using IntelHex;
 using Serilog;
 using Version = CommonTypes.Version;
+
 namespace CalTp;
 
 public enum CmdStatus {
@@ -11,36 +14,65 @@ public enum CmdStatus {
 }
 
 public class CalibrationProtocol {
+    private readonly FblCommands _fblCommands;
     private readonly ILogger _logger;
     private readonly ITransportProtocol _tp;
+    private bool _inBootloader = false;
 
     public CalibrationProtocol(ILogger logger, ITransportProtocol tp) {
         _logger = logger;
         _tp = tp;
     }
-    public CalibrationProtocol(ILogger logger, (uint rx,uint tx) frames) {
+
+    //Constructor used for CAN tp
+    public CalibrationProtocol(ILogger logger, (uint rx, uint tx) frame) {
         _logger = logger;
-        _tp = new CanTp(rx,tx);
+        _tp = new CanTp(frame.rx, frame.tx);
+        _fblCommands = new FblCommands(logger, _tp);
     }
 
-    public bool ConnectionStatus { get; private set; }
+    public bool ConnectionStatus { get; } = false;
+
+    public async Task<CmdStatus> JumpToFbl() {
+        try {
+            if (await _fblCommands.Ping() != ResponseCode.Success) {
+                _logger.Error("Cannot connect to the target.");
+            }
+        }
+        catch (BootloaderExceptions e) {
+            _logger.Error("Command failed, error {}", e.Message);
+            _inBootloader = false;
+            return CmdStatus.Ok;
+        }
+
+        _logger.Information("Connection successful.");
+        _logger.Information("Bootloader version = {0}", _fblCommands.FblVersion);
+        _inBootloader = true;
+        return CmdStatus.Ok;
+    }
+
+    public async Task<CmdStatus> Program(Hex swPackageHex) {
+        if (ConnectionStatus && _inBootloader) {
+            await _tp.QueryAsync(BuildCommand(Command.Program), 3);
+            return (CmdStatus) 0;
+        }
+
+        return CmdStatus.Ok;
+    }
 
     public async Task<CmdStatus> Connect() {
         _tp.Connect();
-        var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1);
+        var status = await _tp.QueryAsync(BuildCommand(Command.Connect), 1, new CancellationToken(), 1);
         if (status.Status != TpStatus.Ok) {
             ConnectionStatus = false;
             _logger.Error("");
             return CmdStatus.Ok;
         }
+
         ConnectionStatus = true;
         return CmdStatus.Ok;
     }
 
-    public async Task<CmdStatus> Program(Hex swPackageHex) {
-        await _tp.QueryAsync(BuildCommand(Command.Program), 3);
-        return (CmdStatus) 0;
-    }
 
     public async Task<CmdStatus> Disconnect() {
         await _tp.QueryAsync(BuildCommand(Command.Disconnect), 1);
@@ -60,7 +92,7 @@ public class CalibrationProtocol {
         var payload = addressBytes.Concat(sizeBytes).ToArray();
         var status =
             await _tp.QueryAsync(
-                BuildCommand(Command.ReadMemory, payload), (byte)size+1);
+                BuildCommand(Command.ReadMemory, payload), (byte) size + 1);
 
         return ((CmdStatus, byte[])) (status.Status, status.Data);
     }
@@ -71,8 +103,8 @@ public class CalibrationProtocol {
         var payload = addressBytes.Concat(sizeBytes).Concat(data).ToArray();
         var status =
             await _tp.QueryAsync(
-                BuildCommand(Command.WriteMemory, payload),1);
-        
+                BuildCommand(Command.WriteMemory, payload), 1);
+
         return (CmdStatus) status.Status;
     }
 
@@ -90,11 +122,6 @@ public class CalibrationProtocol {
 
     public async Task<CmdStatus> ClearReadBlockConfig() {
         return (CmdStatus) 0;
-    }
-
-    public async Task<CmdStatus> UpdateSoftware() {
-        var status = _tp.QueryAsync(BuildCommand(Command.JumpToFbl), 1);
-        return (CmdStatus) status.Status;
     }
 
     public async Task<CmdStatus> GetControlBlock() {
@@ -131,12 +158,11 @@ public class CalibrationProtocol {
         return BitConverter.GetBytes(value);
     }
 
-    public EcuIdent GetEcuIdent() {
+    public async Task<EcuIdent> GetEcuIdent() {
         throw new NotImplementedException();
     }
 
-    public Version GetSwVersion() {
+    public async Task<Version> GetSwVersion() {
         throw new NotImplementedException();
     }
-
 }

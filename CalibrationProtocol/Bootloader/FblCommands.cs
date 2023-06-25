@@ -3,6 +3,7 @@ using Serilog;
 using Version = CommonTypes.Version;
 
 namespace CalTp.Bootloader.BootloaderLogic;
+
 /*TODO:
     - Write Memory high level
     - Read Memory low level
@@ -16,17 +17,16 @@ namespace CalTp.Bootloader.BootloaderLogic;
     
 
 */
-public class Commands {
+public partial class FblCommands {
     private const int PingTimeoutMs = 1000;
-    private const int CommandTimeoutMs = 500;
-    private const byte StartByte = 0x5A;
+    private const int DefaultTimeoutMs = 500;
     private const int AckTimeoutMs = 1000;
     private const int AttemptCounter = 3;
     private readonly ILogger _logger;
     private readonly ITransportProtocol _tp;
     private ushort Options;
 
-    public Commands(ILogger logger, ITransportProtocol tp) {
+    public FblCommands(ILogger logger, ITransportProtocol tp) {
         _logger = logger;
         _tp = tp;
     }
@@ -40,10 +40,9 @@ public class Commands {
     /// </summary>
     /// <returns></returns>
     public async Task<ResponseCode> Ping() {
-        const int respLen = 10;
-        return await SendQueryAsync(PacketWrapper.BuildFramingPacket(PacketType.Ping), respLen, PingTimeoutMs,
+        return await SendQueryAsync(BuildFramingPacket(PacketType.Ping), PingResponseLen, PingTimeoutMs,
             x => {
-                (FblVersion, Options) = PacketWrapper.ParsePingResponse(x);
+                (FblVersion, Options) = ParsePingResponse(x);
                 return ResponseCode.Success;
             });
     }
@@ -118,7 +117,7 @@ public class Commands {
 
         var resp = ResponseCode.Fail;
         for (var i = AttemptCounter; i > 0; i--) {
-            resp = await GetGenericResponse(command.Type, TODO);
+            resp = await GetGenericResponse(command.Type, 1);
             if (resp is ResponseCode.AppCrcCheckOutOfRange or ResponseCode.Fail or ResponseCode.Timeout) {
                 SendNack();
             }
@@ -142,7 +141,7 @@ public class Commands {
     private async Task<ResponseCode> SendQueryAsync(byte[] requestBy, int responseLen, int timeout,
         Func<byte[], ResponseCode> action) {
         var cancellationToken = CancellationToken.None;
-        var task = _tp.QueryAsync(PacketWrapper.BuildFramingPacket(PacketType.Ping), responseLen,
+        var task = _tp.QueryAsync(BuildFramingPacket(PacketType.Ping), responseLen,
             cancellationToken);
         if (await Task.WhenAny(task, Task.Delay(PingTimeoutMs, cancellationToken)) == task &&
             task.IsCompletedSuccessfully) {
@@ -154,22 +153,22 @@ public class Commands {
     }
 
     private async Task SendCommand(Command command) {
-        var request = PacketWrapper.BuildCommandPacket(command);
+        var request = BuildCommandPacket(command);
         _logger.Warning("{0}", request);
         await _tp.WriteAsync(request);
     }
 
     private void SendNack() {
-        await _tp.WriteAsync(PacketWrapper.BuildFramingPacket(PacketType.Nak));
+        await _tp.WriteAsync(BuildFramingPacket(PacketType.Nak));
     }
 
     private async void SendAck() {
-        await _tp.WriteAsync(PacketWrapper.BuildFramingPacket(PacketType.Ack));
+        await _tp.WriteAsync(BuildFramingPacket(PacketType.Ack));
     }
 
-    private async Task<ResponseCode> GetGenericResponse(CommandType commandType, int timeout = DefaultTmeoutMs) {
+    private async Task<ResponseCode> GetGenericResponse(CommandType commandType, int timeout = DefaultTimeoutMs) {
         var status =
-            PacketWrapper.ParseGenericResponse(await _tp.ReadAsync(PacketWrapper.GenericResponseLen, timeout),
+            ParseGenericResponse(await _tp.ReadAsync(GenericResponseLen, timeout),
                 out var tag);
         if (commandType != tag) {
             _logger.Error("Command tag mismatch. Expected {0}, received {1}", commandType, tag);
@@ -179,7 +178,6 @@ public class Commands {
         return status;
     }
 
-    private const int DefaultTmeoutMs = 1;
 
     private async Task<bool> SendCommandsGetAck(byte[] request) {
         await _tp.QueryAsync(request, 2, new CancellationToken(), AckTimeoutMs);

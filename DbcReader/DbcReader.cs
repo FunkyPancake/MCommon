@@ -11,7 +11,7 @@ public class DbcReader {
     // public (CanFrame tx, CanFrame rx) GetCalFrames(string ecuId) {
         // throw new NotImplementedException();
     // }
-    public (int tx, int rx) GetCalFrames(object getTargetEcu) {
+    public (uint tx, uint rx) GetCalFrames(object getTargetEcu) {
         throw new NotImplementedException();
     }
 }

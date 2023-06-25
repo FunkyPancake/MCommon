@@ -1,14 +1,16 @@
 using Version = CommonTypes.Version;
 namespace CalTp.Bootloader.BootloaderLogic;
 
-internal static class PacketWrapper {
+public partial class  FblCommands {
     #region FramingPacket
 
     private const byte StartByte = 0x5A;
     private const byte FramingPacketHeaderLen = 6;
     private const int GenericResponseLen = 18;
+    private const int PingResponseLen = 10;
 
-    public static byte[] BuildFramingPacket(PacketType packetType, byte[]? payload = null) {
+
+    private static byte[] BuildFramingPacket(PacketType packetType, byte[]? payload = null) {
         if (payload is null) {
             return new[] {StartByte, (byte) packetType};
         }
@@ -25,7 +27,7 @@ internal static class PacketWrapper {
         return packet;
     }
 
-    public static byte[] ParseFramingPacket(byte[] bytes) {
+    private static byte[] ParseFramingPacket(byte[] bytes) {
         if (bytes[0] != StartByte)
             throw new InvalidDataException();
 
@@ -40,11 +42,10 @@ internal static class PacketWrapper {
         return payload;
     }
 
-    public static (Version,ushort) ParsePingResponse(byte[] bytes) {
-        const int respLen = 10;
-        var crc = bytes[respLen - 2] + (bytes[respLen - 1] << 8);
+    private static (Version,ushort) ParsePingResponse(byte[] bytes) {
+        var crc = bytes[PingResponseLen - 2] + (bytes[PingResponseLen - 1] << 8);
         if (bytes[0] != StartByte || bytes[1] != (byte) PacketType.PingResponse ||
-            crc != CalcCrc(bytes[..(respLen - 2)], Array.Empty<byte>())) {
+            crc != CalcCrc(bytes.AsSpan()[..(PingResponseLen - 2)], Array.Empty<byte>())) {
             throw new InvalidDataException();
         }
         var fblVersion = new Version(bytes[4], bytes[3], bytes[2]);
@@ -56,7 +57,7 @@ internal static class PacketWrapper {
 
     #region CommandPacket
 
-    public static byte[] BuildCommandPacket(Command command) {
+    private static byte[] BuildCommandPacket(Command command) {
         var len = command.Parameters.Length;
         if (len > 7)
             throw new ArgumentException("Parameters array larger than 7");
@@ -71,7 +72,7 @@ internal static class PacketWrapper {
         return BuildFramingPacket(PacketType.Command, commandPacket);
     }
 
-    public static Command ParseCommandPacket(byte[] bytes) {
+    private static Command ParseCommandPacket(byte[] bytes) {
         var command = new Command();
         var response = ParseFramingPacket(bytes);
 
@@ -92,7 +93,7 @@ internal static class PacketWrapper {
 
     #endregion
 
-    public static ResponseCode ParseGenericResponse(byte[] response, out CommandType commandTag) {
+    private static ResponseCode ParseGenericResponse(byte[] response, out CommandType commandTag) {
         var command = ParseCommandPacket(response);
         if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
             throw new ApplicationException("");
@@ -101,7 +102,7 @@ internal static class PacketWrapper {
         return statusCode;
     }
 
-    public static ResponseCode ParseGetPropertyResponse(Command command, out CommandType commandTag) {
+    private static ResponseCode ParseGetPropertyResponse(Command command, out CommandType commandTag) {
         if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
             throw new ApplicationException("");
         var statusCode = (ResponseCode) command.Parameters[0];
@@ -109,7 +110,7 @@ internal static class PacketWrapper {
         return statusCode;
     }
 
-    public static ResponseCode ParseReadMemoryResponse(Command command, out CommandType commandTag) {
+    private static ResponseCode ParseReadMemoryResponse(Command command, out CommandType commandTag) {
         if (command is not {Type: CommandType.ResponseGeneric, Parameters.Length: 2})
             throw new ApplicationException("");
         var statusCode = (ResponseCode) command.Parameters[0];
@@ -117,10 +118,14 @@ internal static class PacketWrapper {
         return statusCode;
     }
 
-    public static bool ParseAck(byte[] bytes) {
+    private static bool ParseAck(byte[] bytes) {
         return bytes[0] == StartByte && bytes[1] == (byte) PacketType.Ack;
     }
-
+    private static ushort CalcCrc(ReadOnlySpan<byte> data) {
+        uint crc = 0;
+        crc = CalcCrcInternal(crc, data);
+        return (ushort) crc;
+    }
     private static ushort CalcCrc(ReadOnlySpan<byte> header, ReadOnlySpan<byte> payload) {
         uint crc = 0;
         crc = CalcCrcInternal(crc, header);
